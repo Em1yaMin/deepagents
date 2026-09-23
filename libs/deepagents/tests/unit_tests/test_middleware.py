@@ -1,3 +1,4 @@
+import base64
 import mimetypes
 import time
 import warnings
@@ -2328,10 +2329,11 @@ class TestFilesystemMiddleware:
         conditioned on empty content as well. Guarding on `limit` alone would
         regress every image read that happens to carry a degenerate limit.
         """
+        payload = base64.b64encode(b"fake-image-bytes").decode("ascii")
 
         class ImageBackend(StateBackend):
             def read(self, path, *, offset=0, limit=100):
-                return ReadResult(file_data={"content": "<base64_data>", "encoding": "base64"})
+                return ReadResult(file_data={"content": payload, "encoding": "base64"})
 
         middleware = FilesystemMiddleware(backend=ImageBackend())
         runtime = ToolRuntime(
@@ -2352,12 +2354,13 @@ class TestFilesystemMiddleware:
 
     def test_read_file_image_returns_standard_image_content_block(self):
         """Test image reads return standard image blocks with base64 + mime_type."""
+        payload = base64.b64encode(b"fake-image-bytes").decode("ascii")
 
         class ImageBackend(StateBackend):
             def read(self, path, *, offset=0, limit=100):
                 return ReadResult(
                     file_data={
-                        "content": "<base64_data>",
+                        "content": payload,
                         "encoding": "base64",
                     }
                 )
@@ -2384,7 +2387,7 @@ class TestFilesystemMiddleware:
         assert isinstance(result.content, list)
         assert result.content[0]["type"] == "image"
         assert result.content[0]["mime_type"] == "image/png"
-        assert result.content[0]["base64"] == "<base64_data>"
+        assert result.content[0]["base64"] == payload
 
     def test_read_file_base64_unknown_extension_returns_file_block(self):
         """Binary reads route on `encoding`, not the extension map (#3657).

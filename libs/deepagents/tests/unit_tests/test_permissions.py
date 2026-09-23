@@ -1,5 +1,6 @@
 """Unit tests for filesystem permission enforcement in `FilesystemMiddleware`."""
 
+import base64
 import json
 import threading
 
@@ -895,9 +896,11 @@ class TestFilesystemMiddlewarePermissions:
         assert "permission denied" not in result
 
     def test_read_binary_allowed_on_permitted_path(self):
+        payload = base64.b64encode(b"fake-image-bytes").decode("ascii")
+
         class ImageBackend(StateBackend):
             def read(self, path, *, offset=0, limit=100):
-                return ReadResult(file_data={"content": "<base64_data>", "encoding": "base64"})
+                return ReadResult(file_data={"content": payload, "encoding": "base64"})
 
         middleware = FilesystemMiddleware(backend=ImageBackend())
         read_tool = next(t for t in middleware.tools if t.name == "read_file")
@@ -905,7 +908,7 @@ class TestFilesystemMiddlewarePermissions:
         result = _invoke_with_permissions(read_tool, {"file_path": "/app/screenshot.png"}, rules)
         assert isinstance(result, list)
         assert result[0]["type"] == "image"
-        assert result[0]["base64"] == "<base64_data>"
+        assert result[0]["base64"] == payload
 
     def test_read_binary_denied_on_restricted_path(self):
         class ImageBackend(StateBackend):
@@ -1512,9 +1515,11 @@ class TestAsyncFilesystemMiddlewarePermissions:
         assert "permission denied" not in result
 
     async def test_read_binary_allowed_async(self):
+        payload = base64.b64encode(b"fake-image-bytes").decode("ascii")
+
         class ImageBackend(StateBackend):
             async def aread(self, path, *, offset=0, limit=100):
-                return ReadResult(file_data={"content": "<base64_data>", "encoding": "base64"})
+                return ReadResult(file_data={"content": payload, "encoding": "base64"})
 
         middleware = FilesystemMiddleware(backend=ImageBackend())
         read_tool = next(t for t in middleware.tools if t.name == "read_file")
@@ -1522,7 +1527,7 @@ class TestAsyncFilesystemMiddlewarePermissions:
         result = await _ainvoke_with_permissions(read_tool, {"file_path": "/app/screenshot.png"}, rules)
         assert isinstance(result, list)
         assert result[0]["type"] == "image"
-        assert result[0]["base64"] == "<base64_data>"
+        assert result[0]["base64"] == payload
 
     async def test_read_backend_error_passthrough_async(self):
         class ErrorBackend(StateBackend):
