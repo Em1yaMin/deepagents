@@ -193,6 +193,13 @@ since it's `_get_file_type`'s default for unmapped extensions).
 
 _PDF_MIME_TYPE: Final = "application/pdf"
 
+MAX_IMAGE_INPUT_BYTES: Final = 5 * 1024 * 1024
+"""Default cap on the decoded size of an image payload attached by `read_file`.
+
+Aligned with common provider image limits (e.g. Anthropic's 5 MB per-image
+cap). Configurable per middleware instance via `max_image_input_bytes`.
+"""
+
 
 def _tool_error(name: str, tool_call_id: str | None, content: str) -> ToolMessage:
     """Build a `ToolMessage` carrying a plain text error."""
@@ -455,6 +462,83 @@ def _handle_video_read(
                 media_message,
             ],
         }
+    )
+
+
+def _validate_image_payload(
+    content: str,
+    max_image_input_bytes: int | None,
+) -> str | None:
+    """Validate a base64 image payload before it becomes a content block.
+
+    Returns the failure reason, or `None` when the payload is acceptable:
+    strictly decodable base64 that decodes to a non-empty payload within the
+    configured cap (`None` disables the cap).
+    """
+    try:
+        raw_bytes = base64.b64decode(content, validate=True)
+    except (ValueError, TypeError, BinasciiError) as exc:
+        return f"image bytes are not valid base64 ({exc})"
+    if not raw_bytes:
+        return "image payload decodes to zero bytes"
+    if max_image_input_bytes is not None and len(raw_bytes) > max_image_input_bytes:
+        return f"image payload exceeds maximum input size of {max_image_input_bytes} bytes"
+    return None
+
+
+def _invalid_image_read_message(
+    validated_path: str,
+    reason: str,
+    tool_call_id: str | None,
+    invalid_binary_read: Literal["error", "notice"],
+) -> ToolMessage:
+    """Build the tool result for a rejected image payload.
+
+    `"error"` fails the tool call so the agent can react (matching the video
+    path); `"notice"` completes the turn with a text placeholder so no
+    multimodal block is attached to the conversation.
+    """
+    if invalid_binary_read == "notice":
+        return ToolMessage(
+            content=f"[read_file: {validated_path} was not attached because its payload failed validation ({reason}).]",
+            name="read_file",
+            tool_call_id=tool_call_id,
+            status="success",
+        )
+    return _tool_error("read_file", tool_call_id, f"Error reading image {validated_path}: {reason}")
+
+
+def _binary_content_tool_message(
+    content: str,
+    validated_path: str,
+    file_type: FileType,
+    *,
+    max_image_input_bytes: int | None,
+    invalid_binary_read: Literal["error", "notice"],
+    tool_call_id: str | None,
+) -> ToolMessage:
+    """Build the tool result for a binary read: validated image or generic file block.
+
+    The extension map is only consulted to pick the multimodal block type;
+    unknown binary extensions fall back to the generic `"file"`.
+
+    Image payloads are validated before attachment (#3864): an invalid or
+    oversized payload returned as a successful multimodal block would be
+    persisted in the checkpoint and replayed to the model on every later turn.
+    Generic binary `file` blocks are not validated.
+    """
+    block_type = file_type if file_type != "text" else "file"
+    if block_type == "image":
+        reason = _validate_image_payload(content, max_image_input_bytes)
+        if reason is not None:
+            return _invalid_image_read_message(validated_path, reason, tool_call_id, invalid_binary_read)
+    mime_type = mimetypes.guess_type("file" + Path(validated_path).suffix)[0] or "application/octet-stream"
+    return ToolMessage(
+        content_blocks=cast("list[ContentBlock]", [{"type": block_type, "base64": content, "mime_type": mime_type}]),
+        name="read_file",
+        tool_call_id=tool_call_id,
+        additional_kwargs={"read_file_path": validated_path, "read_file_media_type": mime_type},
+        status="success",
     )
 
 
@@ -1847,6 +1931,8 @@ class FilesystemMiddleware(AgentMiddleware[FilesystemState, ContextT, ResponseT]
         human_message_token_limit_before_evict: int | None = 50000,
         max_execute_timeout: int = 3600,
         grep_max_count: int | None = 1000,
+        max_image_input_bytes: int | None = MAX_IMAGE_INPUT_BYTES,
+        invalid_binary_read: Literal["error", "notice"] = "error",
         tools: list[FsToolName] | Literal["all"] | None = None,
         _permissions: list[FilesystemPermission] | None = None,
     ) -> None:
@@ -1872,6 +1958,21 @@ class FilesystemMiddleware(AgentMiddleware[FilesystemState, ContextT, ResponseT]
                 very large repositories. The model can override it per call via
                 the tool's `max_count` argument. Set to `None` to disable the
                 default cap (return every match unless a per-call cap is given).
+            max_image_input_bytes: Maximum decoded size in bytes for an image
+                payload returned by `read_file` as an `image` content block.
+
+                Defaults to `MAX_IMAGE_INPUT_BYTES` (5 MiB), aligned with
+                common provider image limits. Larger payloads are rejected
+                instead of being attached as multimodal blocks. Set to `None`
+                to disable the cap.
+            invalid_binary_read: What `read_file` returns when an image payload
+                fails validation (invalid base64, empty after decoding, or
+                over `max_image_input_bytes`).
+
+                `"error"` fails the tool call with an error `ToolMessage`,
+                matching the video path. `"notice"` completes the turn with a
+                text placeholder instead, so no image block is attached.
+                Defaults to `"error"`.
             tools: Allowlist of tool names to expose to the model.
                 ``"all"` indicates all tools. If unset, defaults to `"all"`.
                 Pass a list containing any of `"ls"`, `"read_file"`,
@@ -1896,6 +1997,12 @@ class FilesystemMiddleware(AgentMiddleware[FilesystemState, ContextT, ResponseT]
             raise ValueError(msg)
         if grep_max_count is not None and grep_max_count <= 0:
             msg = f"grep_max_count must be positive or None, got {grep_max_count}"
+            raise ValueError(msg)
+        if max_image_input_bytes is not None and max_image_input_bytes <= 0:
+            msg = f"max_image_input_bytes must be positive or None, got {max_image_input_bytes}"
+            raise ValueError(msg)
+        if invalid_binary_read not in ("error", "notice"):
+            msg = f"invalid_binary_read must be 'error' or 'notice', got {invalid_binary_read!r}"
             raise ValueError(msg)
         # Use provided backend or default to StateBackend instance
         self.backend = backend if backend is not None else StateBackend()
@@ -1931,6 +2038,8 @@ class FilesystemMiddleware(AgentMiddleware[FilesystemState, ContextT, ResponseT]
         self._human_message_token_limit_before_evict = human_message_token_limit_before_evict
         self._max_execute_timeout = max_execute_timeout
         self._grep_max_count = grep_max_count
+        self._max_image_input_bytes = max_image_input_bytes
+        self._invalid_binary_read = invalid_binary_read
         if isinstance(tools, list):
             self._enabled_tools: frozenset[str] | None = frozenset(tools)
         elif tools == "all":
@@ -2137,17 +2246,14 @@ class FilesystemMiddleware(AgentMiddleware[FilesystemState, ContextT, ResponseT]
             # Route on the backend-declared encoding first: `"base64"` means the
             # content is binary and must never be line-numbered as text, even
             # when the extension is absent from `_EXTENSION_TO_FILE_TYPE`.
-            # The extension map is only consulted to pick the multimodal block
-            # type; unknown binary extensions fall back to the generic `"file"`.
             if encoding == "base64" or file_type != "text":
-                block_type = file_type if file_type != "text" else "file"
-                mime_type = mimetypes.guess_type("file" + Path(validated_path).suffix)[0] or "application/octet-stream"
-                return ToolMessage(
-                    content_blocks=cast("list[ContentBlock]", [{"type": block_type, "base64": content, "mime_type": mime_type}]),
-                    name="read_file",
+                return _binary_content_tool_message(
+                    content,
+                    validated_path,
+                    file_type,
+                    max_image_input_bytes=self._max_image_input_bytes,
+                    invalid_binary_read=self._invalid_binary_read,
                     tool_call_id=tool_call_id,
-                    additional_kwargs={"read_file_path": validated_path, "read_file_media_type": mime_type},
-                    status="success",
                 )
 
             read_result, body = _prepare_read_window(read_result, content, offset)
