@@ -100,6 +100,31 @@ def test_read_file_empty_image_payload_never_attached() -> None:
     assert "image" not in _block_types(result)
 
 
+def test_read_file_zero_byte_decoded_image_rejected() -> None:
+    """A payload that decodes to zero bytes fails validation.
+
+    Reached through a non-whole-file window so the empty-content warning does
+    not intercept the read first, pinning the non-empty-decoded-payload rule
+    itself rather than the warning that usually precedes it.
+    """
+
+    class WindowedBinaryBackend(StateBackend):
+        def read(self, file_path: str, offset: int = 0, limit: int = 100) -> ReadResult:
+            return ReadResult(file_data={"content": "", "encoding": "base64"}, start_line=2, total_lines=2, end_line=2)
+
+    middleware = FilesystemMiddleware(backend=WindowedBinaryBackend())
+    state = FilesystemState(messages=[], files={})
+    runtime = _build_runtime(state, "image-read-1")
+    read_file_tool = next(tool for tool in middleware.tools if tool.name == "read_file")
+    result = read_file_tool.invoke({"file_path": _PNG_PATH, "runtime": runtime})
+
+    assert isinstance(result, ToolMessage)
+    assert result.status == "error"
+    assert isinstance(result.content, str)
+    assert "decodes to zero bytes" in result.content
+    assert "image" not in _block_types(result)
+
+
 def test_read_file_valid_small_image_still_succeeds() -> None:
     """A healthy payload still returns the standard image content block."""
     payload = base64.b64encode(b"\x89PNG\r\n\x1a\n image bytes").decode("ascii")
