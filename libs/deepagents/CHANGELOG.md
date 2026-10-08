@@ -2,6 +2,45 @@
 
 # Deep Agents Changelog
 
+## [0.7.24](https://github.com/Em1yaMin/deepagents/compare/deepagents==0.7.23...deepagents==0.7.24) (2026-10-08)
+
+
+### Features
+
+* **sdk,code:** update `read_file` output formatting ([#5648](https://github.com/Em1yaMin/deepagents/issues/5648)) ([276beca](https://github.com/Em1yaMin/deepagents/commit/276becae1bbaa38d6253aee90e99212e7bdf0606))
+* **sdk:** allow `FilesystemMiddleware` to store blobs on backend ([#6550](https://github.com/Em1yaMin/deepagents/issues/6550)) ([e38e6c9](https://github.com/Em1yaMin/deepagents/commit/e38e6c91def8067e0dec2694d5410d0306f32553))
+* **sdk:** load a skill's tools only when the skill is read ([#6552](https://github.com/Em1yaMin/deepagents/issues/6552)) ([92cd8e7](https://github.com/Em1yaMin/deepagents/commit/92cd8e7fa8b1f8da346ec91e420a820518497f2c))
+* **sdk:** pin skills by name via `pinned_skills` ([#6810](https://github.com/Em1yaMin/deepagents/issues/6810)) ([7022633](https://github.com/Em1yaMin/deepagents/commit/70226333bac013b1b1e37acedfb7955f7e6cd6f8))
+* **sdk:** reload skills when `skills_metadata` is reset to `None` ([#6364](https://github.com/Em1yaMin/deepagents/issues/6364)) ([f86b4e9](https://github.com/Em1yaMin/deepagents/commit/f86b4e9abef7620b63a7258bc9fab0ccd83de8a4))
+
+
+### Bug Fixes
+
+* **sdk:** allow colons in profile model keys ([#6334](https://github.com/Em1yaMin/deepagents/issues/6334)) ([257872e](https://github.com/Em1yaMin/deepagents/commit/257872eea59368a0c3aac003f71d3c83ce44c833))
+* **sdk:** bound compaction recovery and validate input budgets ([#6267](https://github.com/Em1yaMin/deepagents/issues/6267)) ([bb6d431](https://github.com/Em1yaMin/deepagents/commit/bb6d4316eb59b368b862e5517b888e5e70b1c3ae))
+* **sdk:** bound tool offload paths and abbreviate long IDs ([#6519](https://github.com/Em1yaMin/deepagents/issues/6519)) ([ca5f0e5](https://github.com/Em1yaMin/deepagents/commit/ca5f0e5eae7ee749e81ae8e9e3bbc1762447fcc2))
+* **sdk:** disclose byte-cap losses in capture-offload execute previews ([#5567](https://github.com/Em1yaMin/deepagents/issues/5567)) ([dbdd6fb](https://github.com/Em1yaMin/deepagents/commit/dbdd6fbb47f340de8d23092187aa2882242963f8))
+* **sdk:** disclose per-line clipping in large-result previews ([#5564](https://github.com/Em1yaMin/deepagents/issues/5564)) ([5014cf7](https://github.com/Em1yaMin/deepagents/commit/5014cf7f7480c5e080095c9e3396e4ce93421053))
+* **sdk:** explain truncation markers only when preview omits lines ([#5563](https://github.com/Em1yaMin/deepagents/issues/5563)) ([7b4fcd3](https://github.com/Em1yaMin/deepagents/commit/7b4fcd398b2a9bcd875b193c32d1eb97f152ce21))
+* **sdk:** fix character counting in `ls` and `glob` output ([#6204](https://github.com/Em1yaMin/deepagents/issues/6204)) ([4ca678f](https://github.com/Em1yaMin/deepagents/commit/4ca678fe11fcb8f452b59b31923f37dabbc26d6a))
+* **sdk:** give id-less tool result offloads unique paths ([#6316](https://github.com/Em1yaMin/deepagents/issues/6316)) ([a0c2ad0](https://github.com/Em1yaMin/deepagents/commit/a0c2ad03c6dcd52340e91bea6483ee7750d5deee))
+* **sdk:** patch invalid partial tool calls ([#5430](https://github.com/Em1yaMin/deepagents/issues/5430)) ([edc7c1c](https://github.com/Em1yaMin/deepagents/commit/edc7c1ca69831c1827c1f479696a5450ffd1df9d))
+* **sdk:** preserve backend exit status when capture metadata is missing ([#6451](https://github.com/Em1yaMin/deepagents/issues/6451)) ([c9926b1](https://github.com/Em1yaMin/deepagents/commit/c9926b1a96d204309d0b211701b288ce3bb4244b))
+* **sdk:** preserve legacy large-result templates behind deprecation ([#5568](https://github.com/Em1yaMin/deepagents/issues/5568)) ([4932d70](https://github.com/Em1yaMin/deepagents/commit/4932d7066fc9f3464921ab72d5d86922ea4b26ec))
+* **sdk:** propagate subagent state keys for provided subagent middleware ([#5553](https://github.com/Em1yaMin/deepagents/issues/5553)) ([ff8dda9](https://github.com/Em1yaMin/deepagents/commit/ff8dda912b0d1651f234b9d49cec06e79b7c1b6b))
+* **sdk:** put a subagent's own `SkillsMiddleware` in the skills slot ([#6820](https://github.com/Em1yaMin/deepagents/issues/6820)) ([9a91d79](https://github.com/Em1yaMin/deepagents/commit/9a91d79e18dacfe900ac62e59c756e87f3b586a7))
+* **sdk:** recover from rejected `read_file` media ([#6515](https://github.com/Em1yaMin/deepagents/issues/6515)) ([802140c](https://github.com/Em1yaMin/deepagents/commit/802140c1a7d1fff35a7edd8d0f1697eb460ce623))
+* **sdk:** reject parallel same-file edits ([#6446](https://github.com/Em1yaMin/deepagents/issues/6446)) ([2e2ee91](https://github.com/Em1yaMin/deepagents/commit/2e2ee91b794ed549b299445b7bb5de641e9a4f4d))
+* **sdk:** reject unknown keys in the task tool arguments ([#6299](https://github.com/Em1yaMin/deepagents/issues/6299)) ([00fef9c](https://github.com/Em1yaMin/deepagents/commit/00fef9c012b20f91785dc5e83c642fb439832178))
+* **sdk:** report UTF-8 byte sizes ([#6258](https://github.com/Em1yaMin/deepagents/issues/6258)) ([5bac4aa](https://github.com/Em1yaMin/deepagents/commit/5bac4aae53494329a533294564353b10c3385244))
+* **sdk:** require a real Nemotron task transition ([#6296](https://github.com/Em1yaMin/deepagents/issues/6296)) ([3d6392e](https://github.com/Em1yaMin/deepagents/commit/3d6392e82408c1a5e24d0c1d32c53934552fd314))
+* **sdk:** reset stale encoding on text overwrite ([#6737](https://github.com/Em1yaMin/deepagents/issues/6737)) ([fb62fb0](https://github.com/Em1yaMin/deepagents/commit/fb62fb067b924a36359505f9445c1ecc55fd7d66))
+* **sdk:** restrict inline file blocks to supported MIME types ([#6447](https://github.com/Em1yaMin/deepagents/issues/6447)) ([191e93a](https://github.com/Em1yaMin/deepagents/commit/191e93a05e30aad705ee2cb33d5b03e7104dbe5a))
+* **sdk:** suggest populating path in `glob` tool result where appropriate ([#6199](https://github.com/Em1yaMin/deepagents/issues/6199)) ([26954ea](https://github.com/Em1yaMin/deepagents/commit/26954eaafb581db641dd7ce3f9d4ba470a9af878))
+* **sdk:** tag binary `StateBackend.upload_files` content as base64 ([#6551](https://github.com/Em1yaMin/deepagents/issues/6551)) ([b1ebc5b](https://github.com/Em1yaMin/deepagents/commit/b1ebc5bd51aab19c1251197b1b8eb699c85cfc00))
+* **sdk:** update imputed `ToolMessage` content in `PatchToolCallsMiddleware` ([#6277](https://github.com/Em1yaMin/deepagents/issues/6277)) ([178417d](https://github.com/Em1yaMin/deepagents/commit/178417d0dad063fea0300db68455f4574ef67db3))
+* **sdk:** use separate middleware for filtering unsupported multimodal content ([#6366](https://github.com/Em1yaMin/deepagents/issues/6366)) ([737621b](https://github.com/Em1yaMin/deepagents/commit/737621ba73c39ac822c78c144612336bd02de6fb))
+
 ## [0.7.23](https://github.com/langchain-ai/deepagents/compare/deepagents==0.7.22...deepagents==0.7.23) (2026-10-07)
 
 ### Features
